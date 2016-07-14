@@ -9,6 +9,8 @@ require './lib/decoder'
 require './lib/stream_decoder'
 require './lib/file_encoder'
 require './lib/file_decoder'
+require './lib/parallel_encoder'
+require './lib/parallel_decoder'
 
 class QueueTest < Minitest::Test
   def test_it_exists
@@ -409,9 +411,125 @@ class FileDecoderTest < Minitest::Test
   end
 
   def test_it_can_decode_speech
-    f = ParaMorse::FileDecoder.new
-    f.decode("obama_speech_morse.txt", "obama_speech_plain_converted.txt")
+    fe = ParaMorse::FileEncoder.new
+    fd = ParaMorse::FileDecoder.new
+    fe.encode("obama_speech_plain.txt", "obama_speech_morse.txt")
+    fd.decode("obama_speech_morse.txt", "obama_speech_plain_converted.txt")
     assert File.exists?("./lib/obama_speech_plain_converted.txt")
     File.delete("./lib/obama_speech_plain_converted.txt")
   end
+
+  def test_original_speech_lowercased_is_same_as_decoded_encoded_speech
+    orig_speech = File.open("./lib/obama_speech_plain.txt", 'r').read.downcase.chomp
+    fe = ParaMorse::FileEncoder.new
+    fd = ParaMorse::FileDecoder.new
+    fe.encode("obama_speech_plain.txt", "obama_speech_encoded_test.txt")
+    fd.decode("obama_speech_encoded_test.txt", "obama_speech_redecoded.txt")
+    redecoded_speech = File.open("./lib/obama_speech_redecoded.txt", 'r').read
+    assert_equal orig_speech, redecoded_speech
+    File.delete("./lib/obama_speech_encoded_test.txt")
+    File.delete("./lib/obama_speech_redecoded.txt")
+  end
 end
+
+#From this point, texts will be generated in "./texts/"
+
+class ParaMorseToolsTest < Minitest::Test
+  def test_gen_file_function_works
+    t = ParaMorse::Tools.new
+    t.gen_file("bob")
+    assert File.exists?("./texts/bob.txt")
+    File.delete("./texts/bob.txt")
+  end
+
+  def test_del_file_function_works
+    t = ParaMorse::Tools.new
+    t.gen_file("steve")
+    assert File.exists?("./texts/steve.txt")
+    t.del_file("steve")
+    refute File.exists?("./texts/steve.txt")
+  end
+
+  def test_read_file_function_works
+    t = ParaMorse::Tools.new
+    t.gen_file("bobert")
+    assert_equal "bobert", t.read_file("bobert")
+    t.del_file("bobert")
+  end
+end
+
+class ParallelEncoderTest < Minitest::Test
+  def test_it_exists
+    assert ParaMorse::ParallelEncoder.new
+  end
+
+  def test_it_encodes_single_letter_to_single_file
+    e = ParaMorse::ParallelEncoder.new
+    t = ParaMorse::Tools.new
+    t.gen_file("a")
+    e.encode_from_file("a.txt", 1, "a_*.txt")
+    assert File.exists?("./texts/a_00.txt")
+    assert_equal "10111", t.read_file("a_00")
+    t.del_file("a")
+    t.del_file("a_00")
+  end
+
+  def test_it_encodes_single_letter_to_four_files
+    e = ParaMorse::ParallelEncoder.new
+    t = ParaMorse::Tools.new
+    t.gen_file("b")
+    e.encode_from_file("b.txt", 4, "b_*.txt")
+    assert File.exists?("./texts/b_00.txt")
+    assert File.exists?("./texts/b_01.txt")
+    assert File.exists?("./texts/b_02.txt")
+    assert File.exists?("./texts/b_03.txt")
+    assert_equal '111', t.read_file("b_00")
+    assert_equal '10' , t.read_file("b_01")
+    assert_equal '11' , t.read_file("b_02")
+    assert_equal '00' , t.read_file("b_03")
+    t.del_file('b')
+    ('b_00'..'b_03').each{|f|t.del_file(f)}
+  end
+
+  def test_it_encodes_word_to_eight_files
+    e = ParaMorse::ParallelEncoder.new
+    t = ParaMorse::Tools.new
+    t.gen_file("word")
+    e.encode_from_file("word.txt", 8, "word_*.txt")
+    '1011101110001110111011100010111010001110101'
+    assert_equal '111011', t.read_file("word_00")
+    assert_equal '001000', t.read_file("word_01")
+    assert_equal '101101', t.read_file("word_02")
+    assert_equal '10000' , t.read_file("word_03")
+    assert_equal '11111' , t.read_file("word_04")
+    assert_equal '01111' , t.read_file("word_05")
+    assert_equal '11111' , t.read_file("word_06")
+    assert_equal '10000' , t.read_file("word_07")
+    t.del_file('word')
+    ('word_00'..'word_07').each{|f|t.del_file(f)}
+  end
+end
+
+class ParallelDecoderTest < Minitest::Test
+  def test_it_exists
+    assert ParaMorse::ParallelDecoder.new
+  end
+end
+
+
+  # def test_it_can_encode_single_letter_into_single_file
+  #   e = ParaMorse::ParallelEncoder.new
+  #   e.encode_from_file('a.txt',1,'a_result.txt')
+  #   File.open("./lib/a_result.txt",'r').read.chomp
+  #
+  #   '1110111010111'
+  # end
+  #
+  # def test_it_can_encode_a_into_one_file
+  #   e = ParaMorse::ParallelEncoder.new
+  #   abcd = File.open("./lib/abcd.txt", "w")
+  #   abcd.write("abcd")
+  #   abcd.close
+  #   e.encode_from_file("abcd.txt", 4, "abcd_encoded*.txt")
+  # end
+#end

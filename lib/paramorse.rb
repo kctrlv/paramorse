@@ -38,4 +38,26 @@ module ParaMorse
     "9" => "11101110111011101",
     "0" => "1110111011101110111"
   }
+  class Tools
+    def gen_file(text, includes_extension = false)
+      file_loc = "./texts/#{text}"
+      file_loc += ".txt" if !includes_extension
+      text = text.split(".")[0] if includes_extension
+      f = File.open(file_loc, 'w')
+      f.write(text)
+      f.close
+    end
+
+    def del_file(text, includes_extension = false)
+      file_loc = "./texts/#{text}"
+      file_loc += ".txt" if !includes_extension
+      File.delete(file_loc)
+    end
+
+    def read_file(text, includes_extension = false)
+      file_loc = "./texts/#{text}"
+      file_loc += ".txt" if !includes_extension
+      File.open(file_loc).read
+    end
+  end
 end
